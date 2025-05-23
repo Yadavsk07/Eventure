@@ -1,14 +1,14 @@
 import React, { useEffect, useState } from "react";
-import "./Home.css";
 import { auth, db } from "./firebase"; // Import Firebase auth and Firestore
 import { onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
-import LoadingSpinner from "./LoadingSpinner"; // A simple loading spinner component
 
 const ProfileSection = ({ title, content }) => (
-  <section className="profile-section">
-    <h2>{title}</h2>
-    <p>{content}</p>
+  <section className="mb-6">
+    <h2 className="text-xl font-semibold text-gray-700 border-b-2 border-blue-600 inline-block mb-2">
+      {title}
+    </h2>
+    <p className="text-gray-600 text-sm">{content}</p>
   </section>
 );
 
@@ -19,19 +19,18 @@ const Home = () => {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    // Listen for authentication state changes
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       if (currentUser) {
-        setUser(currentUser); // Update user state
-        fetchProfileData(currentUser.uid); // Fetch profile data
+        setUser(currentUser);
+        fetchProfileData(currentUser.uid);
       } else {
-        setUser(null); // Clear user state
+        setUser(null);
         setProfileData(null);
         setLoading(false);
       }
     });
 
-    return () => unsubscribe(); // Clean up listener
+    return () => unsubscribe();
   }, []);
 
   const fetchProfileData = async (userId) => {
@@ -58,40 +57,63 @@ const Home = () => {
   };
 
   if (loading) {
-    return <LoadingSpinner />;
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <div className="text-blue-600 text-lg">Loading...</div>
+      </div>
+    );
   }
 
   if (error) {
-    return <p className="error-message">{error}</p>;
+    return (
+      <div className="text-center text-red-600 font-medium mt-8">
+        {error}
+      </div>
+    );
   }
 
   if (!user) {
-    return <p className="no-data-message">Please log in to view your profile.</p>;
+    return (
+      <div className="text-center text-gray-600 font-medium mt-8">
+        Please log in to view your profile.
+      </div>
+    );
   }
 
   if (!profileData) {
-    return <p className="no-data-message">No profile data available.</p>;
+    return (
+      <div className="text-center text-gray-600 font-medium mt-8">
+        No profile data available.
+      </div>
+    );
   }
 
   return (
-    <div className="profile-page">
-      <div className="profile-header">
+    <div className="max-w-4xl mx-auto bg-white rounded-lg shadow-md p-8 mt-12">
+      <div className="flex items-center mb-8">
         <img
           src={profileData.profileImage || "https://via.placeholder.com/150"}
           alt="Profile"
-          className="profile-image"
+          className="w-36 h-36 rounded-full object-cover mr-6 shadow-md"
         />
-        <div className="profile-details">
-          <h1>{profileData.organizationName}</h1>
-          <p className="profile-type">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800">
+            {profileData.organizationName}
+          </h1>
+          <p className="text-gray-600 text-sm">
             {profileData.userType} - {profileData.organizationType}
           </p>
-          <p className="profile-location">{profileData.location}</p>
+          <p className="text-gray-500 text-sm mt-1">
+            {profileData.location}
+          </p>
         </div>
       </div>
 
-      <div className="profile-body">
-        <ProfileSection title="About" content={profileData.aboutorganization} />
+      <div>
+        <ProfileSection
+          title="About"
+          content={profileData.aboutorganization}
+        />
 
         {profileData.userType === "Sponsor" && (
           <ProfileSection
@@ -111,6 +133,7 @@ const Home = () => {
                 href={profileData.website}
                 target="_blank"
                 rel="noopener noreferrer"
+                className="text-blue-600 underline"
               >
                 {profileData.website}
               </a>
@@ -121,10 +144,10 @@ const Home = () => {
         <ProfileSection
           title="Contact Information"
           content={
-            <>
-              <p>Email: {profileData.email}</p>
-              <p>Phone: {profileData.contactNumber}</p>
-            </>
+            <div>
+              <p className="text-gray-600">Email: {profileData.email}</p>
+              <p className="text-gray-600">Phone: {profileData.contactNumber}</p>
+            </div>
           }
         />
       </div>

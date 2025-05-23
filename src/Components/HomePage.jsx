@@ -11,7 +11,6 @@ import {
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { auth, db, storage } from "./firebase";
 import { onAuthStateChanged } from "firebase/auth";
-import "./HomePage.css";
 
 const HomePage = () => {
   const [user, setUser] = useState(null);
@@ -21,7 +20,6 @@ const HomePage = () => {
   const [postImage, setPostImage] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  // Monitor user authentication
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
@@ -32,12 +30,10 @@ const HomePage = () => {
     return () => unsubscribe();
   }, []);
 
-  // Fetch posts
   useEffect(() => {
     fetchPosts();
   }, []);
 
-  // Fetch user profile data
   const fetchProfileData = async (userId) => {
     try {
       const organizerDoc = await getDoc(doc(db, "Organizers", userId));
@@ -61,7 +57,6 @@ const HomePage = () => {
     }
   };
 
-  // Fetch all posts
   const fetchPosts = () => {
     const postsQuery = query(collection(db, "Posts"), orderBy("createdAt", "desc"));
     onSnapshot(postsQuery, (snapshot) => {
@@ -73,7 +68,6 @@ const HomePage = () => {
     });
   };
 
-  // Upload an image and return its download URL
   const handleImageUpload = async (file) => {
     try {
       const imageRef = ref(storage, `posts/${user.uid}/${Date.now()}_${file.name}`);
@@ -85,7 +79,6 @@ const HomePage = () => {
     }
   };
 
-  // Handle create post
   const handleCreatePost = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -114,7 +107,6 @@ const HomePage = () => {
 
       await addDoc(collection(db, "Posts"), postData);
 
-      // Clear form inputs
       setPostContent("");
       setPostImage(null);
     } catch (error) {
@@ -126,31 +118,28 @@ const HomePage = () => {
   };
 
   if (!user) {
-    return <p>Please log in to view the homepage.</p>;
+    return <p className="text-center text-gray-600">Please log in to view the homepage.</p>;
   }
 
   return (
-    <div className="homepage">
-      {/* Navigation Bar */}
-      <nav className="navbar">
-        <div className="navbar-logo">
-          <h1>Eventure</h1>
-        </div>
-        <div className="navbar-links">
-          <a href="#home">Home</a>
-          <a href="/profilepage">Profile</a>
-          <a href="#settings">Settings</a>
-          <a href="/SignIn">Logout</a>
+    <div className="max-w-4xl mx-auto p-4">
+      <nav className="bg-blue-500 text-white flex justify-between items-center p-4 rounded-lg shadow-md mb-6">
+        <h1 className="text-xl font-bold">Eventure</h1>
+        <div className="flex space-x-4">
+          <a href="#home" className="hover:underline">Home</a>
+          <a href="/profilepage" className="hover:underline">Profile</a>
+          <a href="#settings" className="hover:underline">Settings</a>
+          <a href="/SignIn" className="hover:underline">Logout</a>
         </div>
       </nav>
 
-      {/* Create Post Section */}
-      <div className="create-post-section">
-        <form onSubmit={handleCreatePost} className="create-post-form">
+      <div className="bg-white p-4 rounded-lg shadow-md mb-6">
+        <form onSubmit={handleCreatePost} className="space-y-4">
           <textarea
             placeholder="What's on your mind?"
             value={postContent}
             onChange={(e) => setPostContent(e.target.value)}
+            className="w-full h-20 p-2 border border-gray-300 rounded-lg focus:ring focus:ring-blue-300"
           />
           <input
             type="file"
@@ -158,42 +147,43 @@ const HomePage = () => {
             onChange={(e) => {
               const file = e.target.files[0];
               if (file) {
-                setPostImage(file); // Store the File object
+                setPostImage(file);
               }
             }}
+            className="block w-full text-gray-700 border border-gray-300 rounded-lg file:bg-blue-500 file:text-white file:rounded-lg file:px-4 file:py-2"
           />
-          <button type="submit" disabled={loading}>
+          <button
+            type="submit"
+            disabled={loading}
+            className={`px-4 py-2 text-white rounded-lg ${
+              loading ? "bg-gray-400 cursor-not-allowed" : "bg-blue-500 hover:bg-blue-600"
+            }`}
+          >
             {loading ? "Posting..." : "Post"}
           </button>
         </form>
       </div>
 
-      {/* Posts Section */}
-      <div className="posts-section">
+      <div className="space-y-4">
         {posts.map((post) => (
-          <div key={post.id} className="post-card">
-            <div className="post-header">
+          <div key={post.id} className="bg-white p-4 rounded-lg shadow-md">
+            <div className="flex items-center mb-4">
               <img
-                src={
-                  post.authorProfileImage && post.authorProfileImage.trim() !== ""
-                    ? post.authorProfileImage
-                    : "https://via.placeholder.com/150"
-                }
+                src={post.authorProfileImage || "https://via.placeholder.com/150"}
                 alt="Author"
-                className="profile-image"
-                onError={(e) => (e.target.src = "https://via.placeholder.com/150")}
+                className="w-12 h-12 rounded-full mr-4"
               />
               <div>
-                <h4>{post.authorName || "Anonymous"}</h4>
-                <p>{new Date(post.createdAt).toLocaleString()}</p>
+                <h4 className="font-semibold">{post.authorName || "Anonymous"}</h4>
+                <p className="text-sm text-gray-500">{new Date(post.createdAt).toLocaleString()}</p>
               </div>
             </div>
-            <p>{post.content}</p>
+            <p className="mb-4">{post.content}</p>
             {post.image && (
               <img
                 src={post.image}
                 alt="Post"
-                className="post-image"
+                className="rounded-lg"
                 onError={(e) => (e.target.style.display = "none")}
               />
             )}

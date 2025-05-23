@@ -5,7 +5,6 @@ import { auth, db } from "./firebase";
 import { setDoc, doc } from "firebase/firestore";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-import "./SignUp.css";
 
 const SignUp = () => {
   const [activeForm, setActiveForm] = useState("organizer");
@@ -22,11 +21,9 @@ const SignUp = () => {
   const handleSignUp = async (e) => {
     e.preventDefault();
     try {
-      // Create the user with Firebase Authentication
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 
-      // Add the user data to Firestore in the respective collection
       const collectionName = activeForm === "organizer" ? "Organizers" : "Sponsors";
       await setDoc(doc(db, collectionName, user.uid), {
         email: user.email,
@@ -50,33 +47,43 @@ const SignUp = () => {
   };
 
   return (
-    <div className="SignUp">
-      <div className="login-container">
-        <div className="user-selection">
+    <div className="min-h-screen bg-purple-50 flex items-center justify-center font-poppins">
+      <div className="bg-white rounded-xl shadow-lg p-8 max-w-md w-full text-center">
+        <div className="flex justify-center mb-6">
           <button
-            className={activeForm === "organizer" ? "active" : ""}
+            className={`px-4 py-2 border rounded-lg font-semibold text-sm transition ${
+              activeForm === "organizer"
+                ? "bg-purple-800 text-white border-purple-800"
+                : "bg-purple-100 text-purple-800 border-purple-800"
+            }`}
             onClick={() => handleFormSwitch("organizer")}
           >
             Event Organizer
           </button>
           <button
-            className={activeForm === "sponsor" ? "active" : ""}
+            className={`ml-4 px-4 py-2 border rounded-lg font-semibold text-sm transition ${
+              activeForm === "sponsor"
+                ? "bg-purple-800 text-white border-purple-800"
+                : "bg-purple-100 text-purple-800 border-purple-800"
+            }`}
             onClick={() => handleFormSwitch("sponsor")}
           >
             Sponsor
           </button>
         </div>
 
-        <div className="form-section active">
-          <h1>Welcome!</h1>
-          <p className="subtitle">
+        <div>
+          <h1 className="text-2xl font-bold text-purple-800 mb-4">Welcome!</h1>
+          <p className="text-sm text-gray-600 mb-6">
             {activeForm === "organizer"
               ? "Let's get your next big event the perfect sponsor."
               : "Discover the perfect events to showcase your brand."}
           </p>
-          <form onSubmit={handleSignUp}>
-            <div className="form-control">
-              <label htmlFor="email">Email or phone number</label>
+          <form onSubmit={handleSignUp} className="space-y-6">
+            <div>
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+                Email or phone number
+              </label>
               <input
                 type="email"
                 id="email"
@@ -84,10 +91,13 @@ const SignUp = () => {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="Enter your email address"
                 required
+                className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-800"
               />
             </div>
-            <div className="form-control">
-              <label htmlFor="password">Password</label>
+            <div>
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+                Password
+              </label>
               <input
                 type="password"
                 id="password"
@@ -95,27 +105,35 @@ const SignUp = () => {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Enter your password"
                 required
+                className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-800"
               />
-              <div className="password-container">
-                <a href="#">Forgot password?</a>
+              <div className="text-right mt-1">
+                <a href="#" className="text-sm text-purple-800 hover:underline">
+                  Forgot password?
+                </a>
               </div>
             </div>
-            <p className="terms">
-              By clicking Agree & Join, you agree to the Eventure User Agreement,
-              Privacy Policy, and Cookie Policy.
+            <p className="text-sm text-gray-600">
+              By clicking Agree & Join, you agree to the Eventure User Agreement, Privacy Policy, and Cookie Policy.
             </p>
-            <button type="submit" className="submit-btn">
+            <button
+              type="submit"
+              className="w-full py-2 bg-purple-800 text-white rounded-lg font-bold hover:bg-purple-900 transition"
+            >
               Agree & Join
             </button>
           </form>
         </div>
 
-        <p className="footer-signup">
-          Already on Eventure? <Link to="/Signin">Sign in</Link>
+        <p className="text-sm text-gray-600 mt-6">
+          Already on Eventure?{" "}
+          <Link to="/Signin" className="text-purple-800 hover:underline">
+            Sign in
+          </Link>
         </p>
       </div>
 
-      {/* Toast notification container */}
+      {/* Toast Notification Container */}
       <ToastContainer />
     </div>
   );
