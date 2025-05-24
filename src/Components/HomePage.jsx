@@ -1,81 +1,83 @@
 import React, { useState, useEffect } from "react";
-import {
-  collection,
-  query,
-  orderBy,
-  onSnapshot,
-  addDoc,
-  doc,
-  getDoc,
-} from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { auth, db, storage } from "./firebase";
-import { onAuthStateChanged } from "firebase/auth";
+import { useNavigate } from "react-router-dom";
+import { posts, profile } from "../services/api";
+import { io } from "socket.io-client";
+import imageCompression from 'browser-image-compression';
 
 const HomePage = () => {
   const [user, setUser] = useState(null);
   const [profileData, setProfileData] = useState(null);
-  const [posts, setPosts] = useState([]);
+  const [allPosts, setAllPosts] = useState([]);
   const [postContent, setPostContent] = useState("");
   const [postImage, setPostImage] = useState(null);
   const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      setUser(currentUser);
-      if (currentUser) {
-        await fetchProfileData(currentUser.uid);
-      }
+    // Check if user is logged in
+    const token = localStorage.getItem('token');
+    if (!token) {
+      navigate('/signin');
+      return;
+    }
+
+    // Parse user data from token
+    try {
+      const userData = JSON.parse(atob(token.split('.')[1]));
+      setUser(userData);
+      // Fetch profile data after setting user
+      fetchProfileData(userData);
+    } catch (error) {
+      console.error('Error parsing token:', error);
+      navigate('/signin');
+    }
+
+    // Connect to Socket.io
+    const socket = io('http://localhost:5000');
+    
+    socket.on('newPost', (post) => {
+      setAllPosts(prevPosts => [post, ...prevPosts]);
     });
-    return () => unsubscribe();
-  }, []);
+
+    return () => {
+      socket.disconnect();
+    };
+  }, [navigate]);
+
+  const fetchProfileData = async (userData) => {
+    try {
+      const response = await profile.get();
+      console.log('Fetched profile:', response.data);
+      setProfileData(response.data);
+    } catch (error) {
+      console.error('Error fetching profile:', error);
+    }
+  };
 
   useEffect(() => {
     fetchPosts();
   }, []);
 
-  const fetchProfileData = async (userId) => {
+  const fetchPosts = async () => {
     try {
-      const organizerDoc = await getDoc(doc(db, "Organizers", userId));
-      const sponsorDoc = await getDoc(doc(db, "Sponsors", userId));
-
-      if (organizerDoc.exists()) {
-        setProfileData({
-          organizationName: organizerDoc.data().organizationName,
-          profileImage: organizerDoc.data().profileImage,
-        });
-      } else if (sponsorDoc.exists()) {
-        setProfileData({
-          organizationName: sponsorDoc.data().organizationName,
-          profileImage: sponsorDoc.data().profileImage,
-        });
-      } else {
-        setProfileData({ organizationName: "Anonymous", profileImage: null });
-      }
+      const response = await posts.getAll();
+      console.log('Fetched posts:', response.data);
+      setAllPosts(response.data);
     } catch (error) {
-      console.error("Error fetching profile data:", error);
+      console.error('Error fetching posts:', error);
     }
-  };
-
-  const fetchPosts = () => {
-    const postsQuery = query(collection(db, "Posts"), orderBy("createdAt", "desc"));
-    onSnapshot(postsQuery, (snapshot) => {
-      const fetchedPosts = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
-      setPosts(fetchedPosts);
-    });
   };
 
   const handleImageUpload = async (file) => {
     try {
-      const imageRef = ref(storage, `posts/${user.uid}/${Date.now()}_${file.name}`);
-      await uploadBytes(imageRef, file);
-      return await getDownloadURL(imageRef);
+      const compressedFile = await imageCompression(file, {
+        maxSizeMB: 1,
+        maxWidthOrHeight: 1920
+      });
+      return compressedFile;
     } catch (error) {
-      console.error("Image upload failed:", error);
-      return null;
+      console.error('Image compression failed:', error);
+      throw error;
     }
   };
 
@@ -90,36 +92,34 @@ const HomePage = () => {
     }
 
     try {
-      let imageUrl = null;
-
+      const formData = new FormData();
+      if (postContent.trim()) {
+        formData.append('content', postContent.trim());
+      }
+      
       if (postImage) {
-        imageUrl = await handleImageUpload(postImage);
+        const compressedImage = await handleImageUpload(postImage);
+        formData.append('image', compressedImage);
       }
 
-      const postData = {
-        authorId: user.uid,
-        authorName: profileData?.organizationName || "Anonymous",
-        authorProfileImage: profileData?.profileImage || "https://via.placeholder.com/150",
-        content: postContent,
-        image: imageUrl,
-        createdAt: new Date().toISOString(),
-      };
+      // Log the FormData contents
+      console.log('Post FormData contents:');
+      for (let pair of formData.entries()) {
+        console.log(pair[0] + ': ' + (pair[1] instanceof File ? pair[1].name : pair[1]));
+      }
 
-      await addDoc(collection(db, "Posts"), postData);
-
+      const response = await posts.create(formData);
+      console.log('Post creation response:', response);
+      
       setPostContent("");
       setPostImage(null);
     } catch (error) {
-      console.error("Error creating post:", error);
-      alert("Failed to create post.");
+      console.error('Error creating post:', error);
+      alert("Failed to create post. Please try again.");
     } finally {
       setLoading(false);
     }
   };
-
-  if (!user) {
-    return <p className="text-center text-gray-600">Please log in to view the homepage.</p>;
-  }
 
   return (
     <div className="max-w-4xl mx-auto p-4">
@@ -129,7 +129,15 @@ const HomePage = () => {
           <a href="#home" className="hover:underline">Home</a>
           <a href="/profilepage" className="hover:underline">Profile</a>
           <a href="#settings" className="hover:underline">Settings</a>
-          <a href="/SignIn" className="hover:underline">Logout</a>
+          <button 
+            onClick={() => {
+              localStorage.removeItem('token');
+              navigate('/signin');
+            }} 
+            className="hover:underline"
+          >
+            Logout
+          </button>
         </div>
       </nav>
 
@@ -165,26 +173,35 @@ const HomePage = () => {
       </div>
 
       <div className="space-y-4">
-        {posts.map((post) => (
+        {allPosts.map((post) => (
           <div key={post.id} className="bg-white p-4 rounded-lg shadow-md">
             <div className="flex items-center mb-4">
               <img
-                src={post.authorProfileImage || "https://via.placeholder.com/150"}
+                src={post.profile_image || "https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y"}
                 alt="Author"
                 className="w-12 h-12 rounded-full mr-4"
+                onError={(e) => {
+                  e.target.onerror = null;
+                  e.target.src = "https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y";
+                }}
               />
               <div>
-                <h4 className="font-semibold">{post.authorName || "Anonymous"}</h4>
-                <p className="text-sm text-gray-500">{new Date(post.createdAt).toLocaleString()}</p>
+                <h4 className="font-semibold">{post.organization_name || "Anonymous"}</h4>
+                <p className="text-sm text-gray-500">
+                  {new Date(post.created_at).toLocaleString()}
+                </p>
               </div>
             </div>
             <p className="mb-4">{post.content}</p>
-            {post.image && (
+            {post.image_url && (
               <img
-                src={post.image}
+                src={post.image_url}
                 alt="Post"
-                className="rounded-lg"
-                onError={(e) => (e.target.style.display = "none")}
+                className="rounded-lg max-w-full h-auto"
+                onError={(e) => {
+                  e.target.onerror = null;
+                  e.target.style.display = "none";
+                }}
               />
             )}
           </div>

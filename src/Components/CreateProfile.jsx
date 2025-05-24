@@ -1,14 +1,12 @@
-import React, { useState } from "react";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { auth, db, storage } from "./firebase";
-import { doc, setDoc } from "firebase/firestore";
+import React, { useState, useEffect } from "react";
+import { profile } from "../services/api";
+import { useNavigate } from "react-router-dom";
 
 const CreateProfile = () => {
   const [activeForm, setActiveForm] = useState("organizer");
-  const [organizerImage, setOrganizerImage] = useState("https://via.placeholder.com/100");
-  const [sponsorImage, setSponsorImage] = useState("https://via.placeholder.com/100");
+  const [profileImage, setProfileImage] = useState(null);
+  const [previewImage, setPreviewImage] = useState("https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y");
 
-  const [email, setEmail] = useState("");
   const [contactNumber, setContactNumber] = useState("");
   const [organizationName, setOrganizationName] = useState("");
   const [aboutOrganization, setAboutOrganization] = useState("");
@@ -16,67 +14,63 @@ const CreateProfile = () => {
   const [location, setLocation] = useState("");
   const [website, setWebsite] = useState("");
   const [previouslySponsoredEvents, setPreviouslySponsoredEvents] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      navigate('/signin');
+    }
+  }, [navigate]);
 
   const handleFormSwitch = (userType) => {
     setActiveForm(userType);
   };
 
-  const handleImagePreview = async (setImage, event) => {
+  const handleImagePreview = (event) => {
     const file = event.target.files[0];
     if (!file) {
       alert("No file selected.");
       return;
     }
 
+    // Create preview
     const reader = new FileReader();
-    reader.onloadend = () => setImage(reader.result);
+    reader.onloadend = () => setPreviewImage(reader.result);
     reader.readAsDataURL(file);
 
-    const currentUser = auth.currentUser;
-    if (!currentUser) {
-      alert("Please log in to upload an image.");
-      return;
-    }
-
-    try {
-      const fileRef = ref(storage, `profileImages/${currentUser.uid}_${Date.now()}`);
-      await uploadBytes(fileRef, file);
-      const downloadURL = await getDownloadURL(fileRef);
-      setImage(downloadURL);
-    } catch (error) {
-      console.error("Error uploading image:", error);
-      alert("Failed to upload image. Please try again.");
-    }
+    // Store the actual file
+    setProfileImage(file);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const currentUser = auth.currentUser;
-    if (!currentUser) {
-      alert("Please log in to create your profile.");
-      return;
-    }
+    setLoading(true);
 
     const profileData = {
-      email,
       contactNumber,
       organizationName,
       aboutOrganization,
       organizationType,
       location,
       website,
-      profileImage: activeForm === "organizer" ? organizerImage : sponsorImage,
+      profileImage,
       ...(activeForm === "sponsor" && { previouslySponsoredEvents }),
     };
 
     try {
-      const collectionName = activeForm === "organizer" ? "Organizers" : "Sponsors";
-      await setDoc(doc(db, collectionName, currentUser.uid), profileData);
+      console.log('Sending profile data:', profileData);
+      const response = await profile.create(profileData);
+      console.log('Profile creation response:', response);
       alert("Profile created successfully!");
-      window.location.href = "/SignIn";
+      navigate("/homepage");
     } catch (error) {
-      console.error("Error creating profile:", error);
-      alert("Failed to create profile. Please try again.");
+      console.error("Error creating profile:", error.response?.data || error.message);
+      alert(error.response?.data?.error || "Failed to create profile. Please try again.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -90,6 +84,7 @@ const CreateProfile = () => {
       <div className="bg-white rounded-xl shadow-lg p-6 w-full max-w-xl">
         <div className="flex justify-center gap-4 mb-6">
           <button
+            type="button"
             className={`px-4 py-2 rounded-md font-semibold ${
               activeForm === "organizer"
                 ? "bg-[#4c3197] text-white"
@@ -100,6 +95,7 @@ const CreateProfile = () => {
             Event Organizer
           </button>
           <button
+            type="button"
             className={`px-4 py-2 rounded-md font-semibold ${
               activeForm === "sponsor"
                 ? "bg-[#4c3197] text-white"
@@ -113,31 +109,15 @@ const CreateProfile = () => {
         <form onSubmit={handleSubmit}>
           <div className="flex flex-col items-center mb-6">
             <img
-              src={activeForm === "organizer" ? organizerImage : sponsorImage}
+              src={previewImage}
               alt="Profile"
-              className="w-24 h-24 rounded-full border-2 border-gray-300"
+              className="w-24 h-24 rounded-full border-2 border-gray-300 object-cover"
             />
             <input
               type="file"
               accept="image/*"
               className="mt-2 text-sm"
-              onChange={(e) =>
-                handleImagePreview(
-                  activeForm === "organizer" ? setOrganizerImage : setSponsorImage,
-                  e
-                )
-              }
-            />
-          </div>
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700">Email Address</label>
-            <input
-              type="email"
-              placeholder="Enter your email"
-              className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#4c3197]"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
+              onChange={handleImagePreview}
             />
           </div>
           <div className="mb-4">
@@ -199,25 +179,30 @@ const CreateProfile = () => {
               required
             />
           </div>
-          {activeForm === "organizer" && (
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700">Website/Social Media Links</label>
-              <input
-                type="text"
-                placeholder="Enter your links"
-                className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#4c3197]"
-                value={website}
-                onChange={(e) => setWebsite(e.target.value)}
-              />
-            </div>
-          )}
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700">Website</label>
+            <input
+              type="text"
+              placeholder="Enter your website URL (e.g., https://example.com)"
+              className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#4c3197]"
+              value={website}
+              onChange={(e) => {
+                let url = e.target.value;
+                // Add https:// if not present
+                if (url && !url.startsWith('http://') && !url.startsWith('https://')) {
+                  url = 'https://' + url;
+                }
+                setWebsite(url);
+              }}
+            />
+          </div>
           {activeForm === "sponsor" && (
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700">
                 Previously Sponsored Events
               </label>
               <textarea
-                placeholder="List the events you have sponsored"
+                placeholder="List any events you have sponsored before"
                 className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#4c3197]"
                 value={previouslySponsoredEvents}
                 onChange={(e) => setPreviouslySponsoredEvents(e.target.value)}
@@ -226,9 +211,12 @@ const CreateProfile = () => {
           )}
           <button
             type="submit"
-            className="w-full py-2 bg-[#4c3197] text-white font-semibold rounded-md hover:bg-[#372d70] transition-colors"
+            disabled={loading}
+            className={`w-full py-2 px-4 rounded-md text-white font-semibold ${
+              loading ? "bg-gray-400" : "bg-[#4c3197] hover:bg-[#3a2469]"
+            }`}
           >
-            Create Profile
+            {loading ? "Creating Profile..." : "Create Profile"}
           </button>
         </form>
       </div>

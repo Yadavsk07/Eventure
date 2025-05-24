@@ -1,6 +1,10 @@
 [
     {
-      "origin": ["http://localhost:5173"],
+      "origin": [
+        "http://localhost:5173",
+        "https://yadavsk07.github.io",
+        "https://eventure-8632c.web.app"
+      ],
       "method": ["GET", "POST", "PUT", "DELETE", "HEAD"],
       "responseHeader": ["Content-Type", "Authorization"],
       "maxAgeSeconds": 3600

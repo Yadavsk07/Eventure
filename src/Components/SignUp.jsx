@@ -1,8 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { createUserWithEmailAndPassword } from "firebase/auth";
-import { auth, db } from "./firebase";
-import { setDoc, doc } from "firebase/firestore";
+import { auth } from "../services/api";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
@@ -21,119 +19,82 @@ const SignUp = () => {
   const handleSignUp = async (e) => {
     e.preventDefault();
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      const user = userCredential.user;
-
-      const collectionName = activeForm === "organizer" ? "Organizers" : "Sponsors";
-      await setDoc(doc(db, collectionName, user.uid), {
-        email: user.email,
-        userType: activeForm,
-        createdAt: new Date(),
-      });
-
-      toast.success("User registered successfully!", { position: "top-center" });
+      await auth.register({ email, password, userType: activeForm });
+      // Automatically sign in after successful registration
+      const loginResponse = await auth.login({ email, password });
+      localStorage.setItem('token', loginResponse.data.token);
+      toast.success("User registered and logged in successfully!", { position: "top-center" });
       navigate("/createprofile");
     } catch (error) {
       console.error("Error during registration:", error);
-
-      if (error.code === "auth/email-already-in-use") {
-        toast.error("Email already in use. Try logging in instead.", { position: "top-center" });
-      } else if (error.code === "auth/weak-password") {
-        toast.error("Password should be at least 6 characters.", { position: "top-center" });
-      } else {
-        toast.error("Registration failed. Please try again.", { position: "top-center" });
-      }
+      toast.error(error.response?.data?.error || "Registration failed. Please try again.", { position: "top-center" });
     }
   };
 
   return (
-    <div className="min-h-screen bg-purple-50 flex items-center justify-center font-poppins">
-      <div className="bg-white rounded-xl shadow-lg p-8 max-w-md w-full text-center">
-        <div className="flex justify-center mb-6">
+    <div className="flex items-center justify-center min-h-screen bg-gray-100">
+      <div className="bg-white p-8 rounded-lg shadow-md w-96">
+        <h2 className="text-2xl font-bold mb-6 text-center text-gray-800">Sign Up</h2>
+        
+        <div className="flex justify-center space-x-4 mb-6">
           <button
-            className={`px-4 py-2 border rounded-lg font-semibold text-sm transition ${
-              activeForm === "organizer"
-                ? "bg-purple-800 text-white border-purple-800"
-                : "bg-purple-100 text-purple-800 border-purple-800"
-            }`}
             onClick={() => handleFormSwitch("organizer")}
+            className={`px-4 py-2 rounded-md ${
+              activeForm === "organizer"
+                ? "bg-blue-500 text-white"
+                : "bg-gray-200 text-gray-700"
+            }`}
           >
-            Event Organizer
+            Organizer
           </button>
           <button
-            className={`ml-4 px-4 py-2 border rounded-lg font-semibold text-sm transition ${
-              activeForm === "sponsor"
-                ? "bg-purple-800 text-white border-purple-800"
-                : "bg-purple-100 text-purple-800 border-purple-800"
-            }`}
             onClick={() => handleFormSwitch("sponsor")}
+            className={`px-4 py-2 rounded-md ${
+              activeForm === "sponsor"
+                ? "bg-blue-500 text-white"
+                : "bg-gray-200 text-gray-700"
+            }`}
           >
             Sponsor
           </button>
         </div>
 
-        <div>
-          <h1 className="text-2xl font-bold text-purple-800 mb-4">Welcome!</h1>
-          <p className="text-sm text-gray-600 mb-6">
-            {activeForm === "organizer"
-              ? "Let's get your next big event the perfect sponsor."
-              : "Discover the perfect events to showcase your brand."}
-          </p>
-          <form onSubmit={handleSignUp} className="space-y-6">
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-                Email or phone number
-              </label>
-              <input
-                type="email"
-                id="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Enter your email address"
-                required
-                className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-800"
-              />
-            </div>
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
-                Password
-              </label>
-              <input
-                type="password"
-                id="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter your password"
-                required
-                className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-800"
-              />
-              <div className="text-right mt-1">
-                <a href="#" className="text-sm text-purple-800 hover:underline">
-                  Forgot password?
-                </a>
-              </div>
-            </div>
-            <p className="text-sm text-gray-600">
-              By clicking Agree & Join, you agree to the Eventure User Agreement, Privacy Policy, and Cookie Policy.
-            </p>
-            <button
-              type="submit"
-              className="w-full py-2 bg-purple-800 text-white rounded-lg font-bold hover:bg-purple-900 transition"
-            >
-              Agree & Join
-            </button>
-          </form>
-        </div>
+        <form onSubmit={handleSignUp} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Email</label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Password</label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              required
+            />
+          </div>
+          <button
+            type="submit"
+            className="w-full bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+          >
+            Sign Up
+          </button>
+        </form>
 
-        <p className="text-sm text-gray-600 mt-6">
-          Already on Eventure?{" "}
-          <Link to="/Signin" className="text-purple-800 hover:underline">
-            Sign in
+        <p className="mt-4 text-center text-sm text-gray-600">
+          Already have an account?{" "}
+          <Link to="/signin" className="text-blue-500 hover:text-blue-600">
+            Sign In
           </Link>
         </p>
       </div>
-
-      {/* Toast Notification Container */}
       <ToastContainer />
     </div>
   );

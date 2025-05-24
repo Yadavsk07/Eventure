@@ -1,7 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { auth, db } from "./firebase"; // Import Firebase auth and Firestore
-import { onAuthStateChanged } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
+import { profile } from "../services/api";
 
 const ProfileSection = ({ title, content }) => (
   <section className="mb-6">
@@ -19,35 +17,35 @@ const Home = () => {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      if (currentUser) {
-        setUser(currentUser);
-        fetchProfileData(currentUser.uid);
-      } else {
-        setUser(null);
-        setProfileData(null);
-        setLoading(false);
-      }
-    });
+    const token = localStorage.getItem('token');
+    if (!token) {
+      setUser(null);
+      setProfileData(null);
+      setLoading(false);
+      return;
+    }
 
-    return () => unsubscribe();
+    try {
+      const userData = JSON.parse(atob(token.split('.')[1]));
+      setUser(userData);
+      fetchProfileData();
+    } catch (error) {
+      console.error('Error parsing token:', error);
+      setUser(null);
+      setProfileData(null);
+      setLoading(false);
+    }
   }, []);
 
-  const fetchProfileData = async (userId) => {
+  const fetchProfileData = async () => {
     setLoading(true);
     setError("");
 
     try {
-      const organizerDoc = await getDoc(doc(db, "Organizers", userId));
-      const sponsorDoc = await getDoc(doc(db, "Sponsors", userId));
-
-      if (organizerDoc.exists()) {
-        setProfileData({ ...organizerDoc.data(), userType: "Organizer" });
-      } else if (sponsorDoc.exists()) {
-        setProfileData({ ...sponsorDoc.data(), userType: "Sponsor" });
-      } else {
-        setError("No profile data found.");
-      }
+      const response = await profile.get();
+      console.log('Fetched profile data:', response.data);
+      console.log('Profile image URL:', response.data.profile_image);
+      setProfileData(response.data);
     } catch (error) {
       console.error("Error fetching profile data:", error);
       setError("Failed to fetch profile data. Please try again.");
@@ -91,17 +89,23 @@ const Home = () => {
   return (
     <div className="max-w-4xl mx-auto bg-white rounded-lg shadow-md p-8 mt-12">
       <div className="flex items-center mb-8">
+        {console.log('Rendering profile image with URL:', profileData.profile_image)}
         <img
-          src={profileData.profileImage || "https://via.placeholder.com/150"}
+          src={profileData.profile_image || "https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y"}
           alt="Profile"
           className="w-36 h-36 rounded-full object-cover mr-6 shadow-md"
+          onError={(e) => {
+            console.error('Error loading profile image:', e);
+            e.target.onerror = null;
+            e.target.src = "https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y";
+          }}
         />
         <div>
           <h1 className="text-2xl font-bold text-gray-800">
-            {profileData.organizationName}
+            {profileData.organization_name}
           </h1>
           <p className="text-gray-600 text-sm">
-            {profileData.userType} - {profileData.organizationType}
+            {user.userType} - {profileData.organization_type}
           </p>
           <p className="text-gray-500 text-sm mt-1">
             {profileData.location}
@@ -112,14 +116,14 @@ const Home = () => {
       <div>
         <ProfileSection
           title="About"
-          content={profileData.aboutorganization}
+          content={profileData.about_organization}
         />
 
-        {profileData.userType === "Sponsor" && (
+        {user.userType === "sponsor" && (
           <ProfileSection
             title="Previously Sponsored Events"
             content={
-              profileData.previouslySponsoredEvents ||
+              profileData.previously_sponsored_events ||
               "No events sponsored yet."
             }
           />
@@ -145,8 +149,8 @@ const Home = () => {
           title="Contact Information"
           content={
             <div>
-              <p className="text-gray-600">Email: {profileData.email}</p>
-              <p className="text-gray-600">Phone: {profileData.contactNumber}</p>
+              <p className="text-gray-600">Email: {user.email}</p>
+              <p className="text-gray-600">Phone: {profileData.contact_number}</p>
             </div>
           }
         />
