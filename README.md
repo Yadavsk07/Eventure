@@ -17,7 +17,7 @@ cd server
 npm install
 
 # Install client dependencies
-cd ../client
+cd Eventure
 npm install
 ```
 
